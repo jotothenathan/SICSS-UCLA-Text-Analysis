@@ -46,6 +46,10 @@ library(RSelenium)
 # Pulling Data from Twitter
 # Need API Key (Provided by SICSS team)
 
+consumer_key <- ###########
+consumer_secret <- ###########
+access_token <- ###########
+access_secret <- ###########
 
 library(twitteR)
 
