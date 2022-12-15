@@ -1,0 +1,113 @@
+############################################################################################
+#											   #
+#   Introduction to Text Analysis							   #
+#   Jonathan D. Ware									   #
+#   June 24, 2021									   #
+#											   #
+############################################################################################
+
+# Create toy data object
+
+duke_web_scrape<- "Duke Experts: A Trusted Source for Policy Makers\n\n\t\t\t\t\t\t\t" 
+
+# Using the 'grepl' command, we can search for a specifc term
+
+grepl("Experts", duke_web_scrape) # Returns true
+
+# With text that is interfering with analysis, this can be removed using 'gsub'
+
+gsub("\t","", duke_web_scrape) #the empty quote tells R to replace \t with nothing
+
+# Can run multiple commands using gsub with pipe '|' character
+
+gsub("\t|\n", "", duke_web_scrape)
+
+# GREP also includes a command that allows for the ability to search from words/phrases in 
+# given string
+
+some_text<-c("Friends","don't","let","friends","make","wordclouds")
+some_text[grep("^[F]", some_text)]
+
+# IMPORTANT: GREP can get confused by regular expressions (e.g., quotation mark; brakets). 
+# To remove these potentially problematic characters, we need to "escape" them using 
+# commas and double \\
+
+text_chunk<-c("[This Professor is not so Great]")
+gsub('\\[|\\]',"", text_chunk)
+
+# Tokenization Tutorial
+
+# Creating a Corpus
+# First need to import the data
+
+load(url("https://cbail.github.io/Trump_Tweets.Rdata"))
+summary(trumptweets)
+dim(trumptweets)
+head(trumptweets$text)
+
+# In R, a package that can be used to create a corpus is 'tm'
+
+install.packages("tm")
+library(tm)
+
+# Using the 'Corpus' command we can convert these tweets into a corpus
+
+trump_corpus <- Corpus(VectorSource(as.vector(trumptweets$text))) 
+trump_corpus
+
+# Alternatively, you can use tidytext
+
+install.packages("tidytext")
+library(tidytext)
+library(dplyr)
+tidy_trump_tweets<- trumptweets %>%
+  select(created_at,text) %>%
+  unnest_tokens("word", text)
+head(tidy_trump_tweets)
+
+# This allows for a more stright forward approach to analysis when compared to the corpus
+# approach. For example, we can see which words are most frequently used
+
+tidy_trump_tweets %>%
+  count(word) %>%
+  arrange(desc(n))
+
+# However, the results are not the most infromative. This leads us to the text pre-processing
+# stage
+
+# First, lets remove frequent stopwords using the 'tm_map' function
+
+trump_corpus <- tm_map(trump_corpus, removeWords, stopwords("english"))
+
+# To do this with tidytext we use the following:
+
+data("stop_words")
+tidy_trump_tweets<-tidy_trump_tweets %>%
+  anti_join(stop_words)
+
+# Let's check top words again
+
+tidy_trump_tweets %>%
+  count(word) %>%
+  arrange(desc(n))
+
+# While this looks better, we still have artifacts from twitter (e.g., https; t.co)
+# We need to create a custom list of stop words using the anti_join function
+
+custom_list <- c("https", "t.co", "rt", "amp")
+custom_list <- as.data.frame(custom_list)
+tidy_trump_tweets<-tidy_trump_tweets %>%
+  anti_join(custom_list)
+
+# Another possible issue are punctuation marks which can be removed from a corpus 
+# using the following. Fortunately, tidytext removes punctuation automatically
+
+trump_corpus <- tm_map(trump_corpus, content_transformer(removePunctuation))
+
+# Removing numbers follows a similar process
+
+trump_corpus <- tm_map(trump_corpus, content_transformer(removeNumbers))
+
+# To remove numbers from tidytext we use the following GREP commands
+
+tidy_trump_tweets<-tidy_trump_tweets[-grep("\\b\\d+\\b", tidy_trump_tweets$word),]

@@ -1,0 +1,89 @@
+############################################################################################
+#											   #
+#   Digital Trace Data									   #
+#   Jonathan D. Ware									   #
+#   June 22, 2021									   #
+#											   #
+############################################################################################
+
+# Setup workspace
+
+install.packages("rvest")
+install.packages("selectr")
+install.packages("Rtools")
+install.packages("httpuv") 
+library(rvest)
+library(selectr)
+library(Rtools)
+library(httpuv)
+
+# read in data from Wikipedia
+
+wiki_page<-read_html("https://en.wikipedia.org/w/index.php?title=World_Health_Organization_ranking_of_health_systems_in_2000&oldid=876464764")
+
+# Table 
+table<-html_node(wiki_page, xpath='//*[@id="mw-content-text"]/div/table')
+head(table)
+
+
+health_rankings<-html_table(table)
+head(health_rankings[,(1:2)])
+
+# Practice with State Pop
+
+page<-read_html("https://simple.wikipedia.org/wiki/List_of_U.S._states_by_population")
+tab <- html_node(page, xpath='/html/body/div[3]/div[3]/div[5]/div[1]/table')
+head(tab)
+state_pop <- html_table(tab)
+head(state_pop[,(3:4)])
+
+# Screen Scraping using Serenium
+# First need to install needed package
+
+install.packages("RSelenium")
+library(RSelenium)
+
+# Pulling Data from Twitter
+# Need API Key (Provided by SICSS team)
+
+
+library(twitteR)
+
+setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
+covid <- searchTwitter('#China + #Coronavirus', n = 10, since = 
+                         '2020-01-01')
+covid_df = twListToDF(covid)
+head(covid_df)
+
+# Pulling Data from Reddit
+# Install needed package
+install.packages("RedditExtractoR")
+library(RedditExctractoR)
+
+# Collecting data where "Tolkien" is mentioned
+
+links <- reddit_urls(
+  search_terms   = "Tolkien",
+  page_threshold = 2
+)
+
+# Pull comments from first thread in Tolkien dataframe
+
+content <- reddit_content(links$URL[1])
+
+# Specify only those threads with >2500 comments 
+
+getcontent <- get_reddit(
+  search_terms = "Tolkien",
+  page_threshold = 1,
+  cn_threshold = 2500
+)
+
+# Visualize structure of first thread in dataset
+
+g <- construct_graph(content, plot = TRUE) #plots hierarchical strucutre 
+plot(g) #provides basic graph of comment network
+
+# Plot comment network with author name 
+user <- user_network(content, include_author = TRUE, agg = TRUE)
+user$plot

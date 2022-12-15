@@ -1,0 +1,136 @@
+################################################################################
+#                                                                              #
+#   Dictionary-Based Text Analysis in R   			               #
+#   Jonathan D. Ware                                                           #
+#   June 29, 2021                                                              #
+#                                                                              #
+################################################################################
+
+# Setup
+
+library(tidytext)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(textdata)
+load(url("https://cbail.github.io/Trump_Tweets.Rdata"))
+
+# Convert tweets into tidytext format
+
+tweets<- trumptweets %>%
+  select(created_at,text) %>%
+  unnest_tokens("word", text)
+
+# Count top words in corpus
+
+data("stop_words")
+
+top_words<-
+  tweets %>%
+  anti_join(stop_words) %>%
+  filter(!(word=="https"|
+             word=="rt"|
+             word=="t.co"|
+             word=="amp")) %>%
+  count(word) %>%
+  arrange(desc(n))
+
+# Plot graph of top 20 words in corpus
+
+top_words %>%
+  slice(1:20) %>%
+  ggplot(aes(x=reorder(word, -n), y=n, fill=word))+
+  geom_bar(stat="identity")+
+  theme_minimal()+
+  theme(axis.text.x = 
+          element_text(angle = 60, hjust = 1, size=13))+
+  theme(plot.title = 
+          element_text(hjust = 0.5, size=18))+
+  ylab("Frequency")+
+  xlab("")+
+  ggtitle("Most Frequent Words in Trump Tweets")+
+  guides(fill=FALSE)
+
+# To identify unusual words, we cab use Term Frequency Inverse Document 
+# Frequency (tf-idf)
+
+trump_tfidf<- trumptweets %>%
+  select(created_at,text) %>%
+  unnest_tokens("word", text) %>%
+  anti_join(stop_words) %>%
+  count(word, created_at) %>%
+  bind_tf_idf(word, created_at, n)
+
+# Next, let's see what words were most uncommon
+
+top_tfidf<-trump_tfidf %>%
+  arrange(desc(tf_idf))
+
+top_tfidf$word[1]
+
+
+# Creating unique dictionary for analysis
+
+economic_dictionary<-c("economy","unemployment","trade","tariffs")
+
+economic_tweets<-trumptweets[str_detect(trumptweets$text, 
+                                    paste(economic_dictionary, collapse="|")),]
+
+# Sentiment dictionaries are available via tidytext (nrc, afinn, bing)
+
+head(get_sentiments("bing"))
+head(get_sentiments("nrc"))
+head(get_sentiments("afinn"))
+
+trump_tweet_sentiment <- tweets %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(created_at, sentiment) 
+
+head(trump_tweet_sentiment)
+
+# Next, let's compare the frequency of positive/negative tweets over time
+
+tweets$date<-as.Date(tweets$created_at, 
+                                format="%Y-%m-%d %x")
+
+
+
+# Negative Plot
+
+trump_sentiment_plot <-
+  tweets %>%
+  inner_join(get_sentiments("bing")) %>% 
+  filter(sentiment=="negative") %>%
+  count(date, sentiment)
+
+ggplot(trump_sentiment_plot, aes(x=date, y=n))+
+  geom_line(color="red", size=.5)+
+  theme_minimal()+
+  theme(axis.text.x = 
+          element_text(angle = 60, hjust = 1, size=13))+
+  theme(plot.title = 
+          element_text(hjust = 0.5, size=18))+
+  ylab("Number of Negative Words")+
+  xlab("")+
+  ggtitle("Negative Sentiment in Trump Tweets")+
+  theme(aspect.ratio=1/4)
+
+# Positive Plot
+
+trump_sentiment_plot_pos <-
+  tweets %>%
+  inner_join(get_sentiments("bing")) %>% 
+  filter(sentiment=="positive") %>%
+  count(date, sentiment)
+
+ggplot(trump_sentiment_plot_pos, aes(x=date, y=n))+
+  geom_line(color="blue", size=.5)+
+  theme_minimal()+
+  theme(axis.text.x = 
+          element_text(angle = 60, hjust = 1, size=13))+
+  theme(plot.title = 
+          element_text(hjust = 0.5, size=18))+
+  ylab("Number of Positive Words")+
+  xlab("")+
+  ggtitle("Positive Sentiment in Trump Tweets")+
+  theme(aspect.ratio=1/4)
